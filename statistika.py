@@ -1,10 +1,9 @@
 import os
 import json
-import csv
 import re
 from datetime import datetime, timedelta
 
-print("=== RESTART STATISTIKY – OPRAVA FORMÁTU ===")
+print("=== AUTOMATICKÝ ZÁPIS STATISTIKY ===")
 
 # 1. Načtení dat z prostředí GitHub Actions
 datum_raw = os.getenv("DATA_DATUM", "")
@@ -23,7 +22,6 @@ kraje_v_inzeratech = re.findall(r"kraj\s+([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-z�
 kraje_v_inzeratech = [k.strip() for k in kraje_v_inzeratech]
 pocet_inzeratu_celkem = len(kraje_v_inzeratech)
 
-# Spočítáme inzeráty pro vybrané hlavní kraje
 inz_stredocesky = sum(1 for k in kraje_v_inzeratech if "Středočeský" in k)
 inz_praha = sum(1 for k in kraje_v_inzeratech if "Praha" in k)
 inz_ustecky = sum(1 for k in kraje_v_inzeratech if "Ústecký" in k)
@@ -53,29 +51,29 @@ if pocet_inzeratu_celkem > 0 and obsazene_kraje:
 else:
     potencial_text = "100.0%"
 
-# 5. Zápis do čistého CSV od nuly
+# 5. Bezpečný zápis do souboru
 soubor_historie = "statistika_historie.csv"
-hlavicka = [
-    "Datum", "Celkem_Inzeratu", "Celkem_Makleru", 
-    "Inzeraty_Stredocesky", "Inzeraty_Praha", "Inzeraty_Ustecky", 
-    "Inzeraty_Jihomoravsky", "Inzeraty_Moravskoslezsky",
-    "Pocet_Navolanych", "Potencial_Navolavani_Procento"
-]
 
-# Jelikož jsme soubor smazali, založíme ho čistě znovu s historickým základem
-with open(soubor_historie, mode="w", newline="\n", encoding="utf-8") as file:
-    writer = csv.writer(file, delimiter=",")
-    writer.writerow(hlavicka)
-    
-    # 1. řádek: Historická suma do 3.7. z tvého schváleného reportu[cite: 2]
-    writer.writerow(["Do 2026-07-03", 517, 0, 103, 97, 30, 73, 70, 0, "100.0%"])
-    
-    # 2. řádek: Aktuálně tlačená data (za včerejšek/předchozí den)
-    writer.writerow([
-        datum_zprocessed, pocet_inzeratu_celkem, pocet_makleru,
-        inz_stredocesky, inz_praha, inz_ustecky, 
-        inz_jihomoravsky, inz_moravskoslezsky,
-        0, potencial_text
-    ])
+# Definujeme sloupce oddělené čárkou
+hlavicka = "Datum,Celkem_Inzeratu,Celkem_Makleru,Inzeraty_Stredocesky,Inzeraty_Praha,Inzeraty_Ustecky,Inzeraty_Jihomoravsky,Inzeraty_Moravskoslezsky,Pocet_Navolanych,Potencial_Navolavani_Procento"
+historicky_zaklad = "Do 2026-07-03,517,0,103,97,30,73,70,0,100.0%"
+novy_radek = f"{datum_zprocessed},{pocet_inzeratu_celkem},{pocet_makleru},{inz_stredocesky},{inz_praha},{inz_ustecky},{inz_jihomoravsky},{inz_moravskoslezsky},0,{potencial_text}"
 
-print("✅ ČISTÁ STATISTIKA BYLA VYTVOŘENA A FORMÁTOVÁNA")
+# Zkontrolujeme, zda soubor existuje a má obsah
+soubor_existuje = os.path.exists(soubor_historie) and os.path.getsize(soubor_historie) > 0
+
+if not soubor_existuje:
+    # Pokud soubor neexistuje, vytvoříme ho s hlavičkou a historickým základem[cite: 2]
+    with open(soubor_historie, mode="w", encoding="utf-8") as file:
+        file.write(hlavicka + "\n")
+        file.write(historicky_zaklad + "\n")
+        file.write(novy_radek + "\n")
+    print("Vytvořen nový soubor s historickým základem.")
+else:
+    # Pokud už soubor existuje, pouze na konec šetrně přidáme nový den
+    with open(soubor_historie, mode="a", encoding="utf-8") as file:
+        file.write(novy_radek + "\n")
+    print(f"Přidán nový řádek pro den {datum_zprocessed}.")
+
+print("=" * 25)
+print("✅ HOTOVO")
