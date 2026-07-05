@@ -35,32 +35,78 @@ inz_ustecky = sum(1 for k in kraje_v_inzeratech if "Ústecký" in k)
 inz_karlovarsky = sum(1 for k in kraje_v_inzeratech if "Karlovarský" in k)
 inz_olomoucky = sum(1 for k in kraje_v_inzeratech if "Olomoucký" in k)
 inz_vysocina = sum(1 for k in kraje_v_inzeratech if "Vysočina" in k)
-inz_liberecký = sum(1 for k in kraje_v_inzeratech if "Liberecký" in k)
+inz_liberecky = sum(1 for k in kraje_v_inzeratech if "Liberecký" in k)
 inz_kralovehradecky = sum(1 for k in kraje_v_inzeratech if "Královéhradecký" in k)
 inz_pardubicky = sum(1 for k in kraje_v_inzeratech if "Pardubický" in k)
 inz_zlinsky = sum(1 for k in kraje_v_inzeratech if "Zlínský" in k)
 
-# 4. Analýza makléřů a obsazených krajů
-pocet_makleru = 0
-obsazene_kraje = set()
+# 4. STATICKÁ DATA: Rozlohy krajů ČR v km²
+rozlohy_kraju = {
+    "Hlavní město Praha": 496,
+    "Středočeský": 11015,
+    "Jihomoravský": 7188,
+    "Moravskoslezský": 5427,
+    "Jihočeský": 10057,
+    "Plzeňský": 7561,
+    "Ústecký": 5335,
+    "Karlovarský": 3314,
+    "Olomoucký": 5272,
+    "Vysočina": 6796,
+    "Liberecký": 3163,
+    "Královéhradecký": 4759,
+    "Pardubický": 4519,
+    "Zlínský": 3963
+}
+
+# Zjištění, ve kterých krajích se reálně objevil aspoň 1 inzerát
+kraje_s_inzeraty = set()
+if inz_praha > 0: kraje_s_inzeraty.add("Hlavní město Praha")
+if inz_stredocesky > 0: kraje_s_inzeraty.add("Středočeský")
+if inz_jihomoravsky > 0: kraje_s_inzeraty.add("Jihomoravský")
+if inz_moravskoslezsky > 0: kraje_s_inzeraty.add("Moravskoslezský")
+if inz_jihocesky > 0: kraje_s_inzeraty.add("Jihočeský")
+if inz_plzensky > 0: kraje_s_inzeraty.add("Plzeňský")
+if inz_ustecky > 0: kraje_s_inzeraty.add("Ústecký")
+if inz_karlovarsky > 0: kraje_s_inzeraty.add("Karlovarský")
+if inz_olomoucky > 0: kraje_s_inzeraty.add("Olomoucký")
+if inz_vysocina > 0: kraje_s_inzeraty.add("Vysočina")
+if inz_liberecky > 0: kraje_s_inzeraty.add("Liberecký")
+if inz_kralovehradecky > 0: kraje_s_inzeraty.add("Královéhradecký")
+if inz_pardubicky > 0: kraje_s_inzeraty.add("Pardubický")
+if inz_zlinsky > 0: kraje_s_inzeraty.add("Zlínský")
+
+# 5. Definice obsazených krajů makléři (ZGK 02)
+obsazene_kraje_makleri = {"Hlavní město Praha", "Středočeský", "Jihomoravský", "Moravskoslezský", "Jihočeský", "Plzeňský"}
+pocet_makleru = 9
+
 try:
     makleri = json.loads(surovi_makleri)
-    pocet_makleru = len(makleri)
-    for m in makleri:
-        kraj_maklere = m.get("Kraj") or m.get("kraj")
-        if kraj_maklere:
-            obsazene_kraje.add(kraj_maklere.strip())
+    if len(makleri) > 0:
+        pocet_makleru = len(makleri)
+        dynamicke_kraje = set()
+        for m in makleri:
+            kraj_maklere = m.get("Kraj") or m.get("kraj")
+            if kraj_maklere:
+                # Ošetření názvu pro Prahu
+                kraj_clean = kraj_maklere.strip()
+                if "Praha" in kraj_clean: kraj_clean = "Hlavní město Praha"
+                dynamicke_kraje.add(kraj_clean)
+        if dynamicke_kraje:
+            obsazene_kraje_makleri = dynamicke_kraje
 except:
     pass
 
-# 5. Výpočet potenciálu pro navolávání
-if pocet_inzeratu_celkem > 0 and obsazene_kraje:
-    inzeraty_v_obsazenych_krajich = sum(1 for k in kraje_v_inzeratech if any(obsazeny in k for obsazeny in obsazene_kraje))
-    potencial_text = f"{(inzeraty_v_obsazenych_krajich / pocet_inzeratu_celkem) * 100:.1f}%"
-else:
-    potencial_text = "100.0%"
+# 6. VÝPOČET GEOGRAFICKÉHO POTENCIÁLU PODLE ROZLOHY
+rozloha_makleri_celkem = sum(rozlohy_kraju[k] for k in obsazene_kraje_makleri if k in rozlohy_kraju)
+rozloha_inzeraty_celkem = sum(rozlohy_kraju[k] for k in kraje_s_inzeraty if k in rozlohy_kraju)
 
-# 6. Definice kompletní široké tabulky (všech 14 krajů)
+if rozloha_inzeraty_celkem > 0:
+    geograficky_pomer = (rozloha_makleri_celkem / rozloha_inzeraty_celkem) * 100
+    potencial_text = f"{geograficky_pomer:.1f}%"
+else:
+    potencial_text = "0.0%"
+
+# 7. Definice široké tabulky a zápis do CSV
 soubor_historie = "statistika_historie.csv"
 hlavicka = [
     "Datum", "Celkem_Inzeratu", "Celkem_Makleru", 
@@ -72,30 +118,24 @@ hlavicka = [
     "Pocet_Navolanych", "Potencial_Navolavani_Procento", "Uspesnost_Navolavani_Procento"
 ]
 
-# Rekonstrukce kompletní historie týdnů přesně podle tvých HTML reportů
 tabulka_dat = [
-    # Týden 1 (15.06. - 19.06. 2026) -> Celkem 120 zakázek
-    ["2026-06-19", 120, 13, 34, 27, 17, 16, 14, 10, 0, 0, 1, 0, 1, 0, 0, 0, 15, "70.0%", "17.9%"],
-    # Týden 2 (22.06. - 26.06. 2026) -> Celkem 118 zakázek
-    ["2026-06-26", 118, 13, 28, 25, 22, 23, 9, 8, 0, 0, 3, 0, 0, 0, 0, 0, 6, "67.0%", "7.6%"],
-    # Týden 3 (27.06. - 03.07. 2026) -> Celkem 279 zakázek
-    ["2026-07-03", 279, 13, 35, 51, 34, 31, 23, 16, 30, 21, 14, 14, 3, 4, 3, 0, 16, "43.0%", "13.3%"],
-    # Nový den (4.7.) doručený z Google tabulky
+    ["2026-06-19", 120, 13, 34, 27, 17, 16, 14, 10, 0, 0, 1, 0, 1, 0, 0, 0, 15, "70.0%", "17.9%"], # Týden 1[cite: 3]
+    ["2026-06-26", 118, 13, 28, 25, 22, 23, 9, 8, 0, 0, 3, 0, 0, 0, 0, 0, 6, "67.0%", "7.6%"],  # Týden 2
+    ["2026-07-03", 279, 13, 35, 51, 34, 31, 23, 16, 30, 21, 14, 14, 3, 4, 3, 0, 16, "43.0%", "13.3%"], # Týden 3
     [
         datum_zprocessed, pocet_inzeratu_celkem, pocet_makleru,
         inz_praha, inz_stredocesky, inz_jihomoravsky, inz_moravskoslezsky,
         inz_jihocesky, inz_plzensky, inz_ustecky, inz_karlovarsky,
-        inz_olomoucky, inz_vysocina, inz_liberecký, inz_kralovehradecky,
+        inz_olomoucky, inz_vysocina, inz_liberecky, inz_kralovehradecky,
         inz_pardubicky, inz_zlinsky,
         0, potencial_text, "0%"
     ]
 ]
 
-# Striktní a čistý zápis kompletní matice
 with open(soubor_historie, mode="w", newline="\r\n", encoding="utf-8-sig") as file:
     writer = csv.writer(file, delimiter=",", quoting=csv.QUOTE_MINIMAL)
     writer.writerow(hlavicka)
     for radek in tabulka_dat:
         writer.writerow(radek)
 
-print("=== DEFENITIVNÍ HISTORIE VŠECH KRAJŮ ZAPSÁNA ===")
+print(f"=== STATISTIKA ULOŽENA | GEOGRAFICKÝ POTENCIÁL: {potencial_text} ===")
