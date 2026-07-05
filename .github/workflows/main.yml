@@ -1,0 +1,32 @@
+name: Automatické zpracování statistik inzerátů
+
+on:
+  repository_dispatch:
+    types: [novy_import_statistiky]
+
+jobs:
+  zpracovani_dat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kontrola zdrojového kódu
+        uses: actions/checkout@v4
+
+      - name: Nastavení Pythonu
+        uses: actions/setup-python@v5
+        with:
+          python-python: '3.10'
+
+      - name: Instalace závislostí
+        run: |
+          python -m pip install --upgrade pip
+          # Sem můžeme později přidat knihovny, které bude tvůj Python potřebovat (např. pandas, requests)
+
+      - name: Spuštění Python skriptu pro analýzu
+        env:
+          DATA_DATUM: ${{ github.event.client_payload.datum }}
+          DATA_INZERATY: ${{ github.event.client_payload.surove_inzeraty }}
+          DATA_MAKLERI: ${{ json(github.event.client_payload.makleri) }}
+        run: |
+          # Tento krok spustí náš hlavní Python skript a předá mu data z Googlu
+          python statistika.py
