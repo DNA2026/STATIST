@@ -4,12 +4,14 @@ import csv
 import re
 from datetime import datetime, timedelta
 
+print("=== INICIALIZACE HISTORICKÝCH TÝDNŮ A ZÁPIS ===")
+
 # 1. Načtení dat z prostředí GitHub Actions
 datum_raw = os.getenv("DATA_DATUM", "")
 surove_inzeraty = os.getenv("DATA_INZERATY", "")
 surovi_makleri = os.getenv("DATA_MAKLERI", "[]")
 
-# 2. Výpočet data (vždy včerejšek)
+# 2. Výpočet data (vždy včerejšek oproti spuštění z Googlu)
 try:
     if datum_raw and datum_raw != "Neuvedeno":
         parsed_date = datetime.strptime(datum_raw.strip(), "%Y-%m-%d")
@@ -19,7 +21,7 @@ try:
 except:
     datum_zprocessed = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-# 3. Analýza dat
+# 3. Analýza aktuálních dat z dnešního importu
 kraje_v_inzeratech = re.findall(r"kraj\s+([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž\s\-]+)", surove_inzeraty)
 kraje_v_inzeratech = [k.strip() for k in kraje_v_inzeratech]
 pocet_inzeratu_celkem = len(kraje_v_inzeratech)
@@ -48,9 +50,14 @@ if pocet_inzeratu_celkem > 0 and obsazene_kraje:
 else:
     potencial_text = "100.0%"
 
-# 4. Zápis
+# 4. Správa souboru a definice struktury
 soubor_historie = "statistika_historie.csv"
-hlavicka = ["Datum", "Celkem_Inzeratu", "Celkem_Makleru", "Inzeraty_Stredocesky", "Inzeraty_Praha", "Inzeraty_Ustecky", "Inzeraty_Jihomoravsky", "Inzeraty_Moravskoslezsky", "Pocet_Navolanych", "Potencial_Navolavani_Procento"]
+hlavicka = [
+    "Datum", "Celkem_Inzeratu", "Celkem_Makleru", 
+    "Inzeraty_Stredocesky", "Inzeraty_Praha", "Inzeraty_Ustecky", 
+    "Inzeraty_Jihomoravsky", "Inzeraty_Moravskoslezsky",
+    "Pocet_Navolanych", "Potencial_Navolavani_Procento", "Uspesnost_Navolavani_Procento"
+]
 
 stajici_radky = []
 if os.path.exists(soubor_historie) and os.path.getsize(soubor_historie) > 0:
@@ -59,12 +66,30 @@ if os.path.exists(soubor_historie) and os.path.getsize(soubor_historie) > 0:
         lines = list(reader)
         if lines: stajici_radky = lines[1:]
 
+# 5. Zápis kompletní tabulky
 with open(soubor_historie, mode="w", newline="\r\n", encoding="utf-8-sig") as file:
     writer = csv.writer(file)
     writer.writerow(hlavicka)
+    
+    # Pokud zakládáme soubor znovu od nuly, vložíme 3 samostatné historické týdny
     if not stajici_radky:
-        writer.writerow(["Do 2026-07-03", 517, 0, 103, 97, 30, 73, 70, 0, "100.0%"])
+        # Týden 1: 15.06. - 19.06.
+        writer.writerow(["2026-06-19", 120, 13, 27, 34, 0, 17, 16, 15, "70.0%", "17.9%"])
+        # Týden 2: 22.06. - 26.06.
+        writer.writerow(["2026-06-26", 118, 13, 25, 28, 0, 22, 23, 6, "67.0%", "7.6%"])
+        # Týden 3: 27.06. - 03.07.
+        writer.writerow(["2026-07-03", 279, 13, 51, 35, 30, 34, 31, 16, "43.0%", "13.3%"])
+        print("Vloženy 3 samostatné historické týdny.")
     else:
         for row in stajici_radky:
             if row: writer.writerow(row)
-    writer.writerow([datum_zprocessed, pocet_inzeratu_celkem, pocet_makleru, inz_stredocesky, inz_praha, inz_ustecky, inz_jihomoravsky, inz_moravskoslezsky, 0, potencial_text])
+            
+    # Přidáme nový včerejší den, který zrovna teče z Google Apps Scriptu
+    writer.writerow([
+        datum_zprocessed, pocet_inzeratu_celkem, pocet_makleru, 
+        inz_stredocesky, inz_praha, inz_ustecky, 
+        inz_jihomoravsky, inz_moravskoslezsky, 
+        0, potencial_text, "0%"
+    ])
+
+print("=== ✅ STATISTIKA KOMPLETNĚ ZAPSÁNA A SEŘAZENA ===")
