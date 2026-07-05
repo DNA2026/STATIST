@@ -28,3 +28,11 @@ jobs:
           DATA_MAKLERI: ${{ toJSON(github.event.client_payload.makleri) }}
         run: |
           python statistika.py
+
+      - name: Uložení aktualizované statistiky do repozitáře
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add statistika_historie.csv || true
+          git commit -m "Automatická aktualizace statistiky pro data z Googlu [skip ci]" || true
+          git push || true
